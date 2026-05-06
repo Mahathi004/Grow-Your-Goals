@@ -1,0 +1,333 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Caveat:wght@400;700&family=Indie+Flower&family=Gloria+Hallelujah&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 240 10% 4%;
+    --foreground: 0 0% 98%;
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 75%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 240 5.9% 10%;
+    --secondary: 240 4% 18%;
+    --secondary-foreground: 0 0% 98%;
+    --accent: 240 4% 20%;
+    --accent-foreground: 0 0% 100%;
+    --border: 240 5% 20%;
+    --input: 240 5% 18%;
+    --card-border: rgba(255, 255, 255, 0.08);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-[#040404] text-white antialiased;
+    line-height: 1.6;
+    font-family: 'Outfit', sans-serif;
+  }
+}
+
+@layer utilities {
+  .font-handwriting {
+    font-family: 'Caveat', cursive !important;
+  }
+  
+  .font-creative {
+    font-family: 'Gloria Hallelujah', cursive !important;
+  }
+
+  .cinematic-bg {
+    background: radial-gradient(circle at top right, #1e293b, #0f172a, #020617);
+  }
+
+  .glass-blue {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  }
+
+  .golden-glow {
+    box-shadow: 0 0 20px rgba(234, 179, 8, 0.15), 0 0 40px rgba(234, 179, 8, 0.08);
+  }
+
+  .border-glow-blue {
+    border: 1px solid rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.1);
+  }
+
+  /* ================================================
+     PREMIUM NOTEBOOK PLANNER AESTHETIC
+  ================================================ */
+
+  /* Page Background — Deep Navy */
+  .notebook-page-bg {
+    background: linear-gradient(160deg, #061426 0%, #0b2242 60%, #071830 100%);
+    min-height: 100vh;
+  }
+
+  /* Main notebook container — cream paper */
+  .notebook-container {
+    background-color: #f7f2e8;
+    background-image:
+      url("https://www.transparenttextures.com/patterns/natural-paper.png"),
+      radial-gradient(circle at 20% 50%, rgba(255,248,220,0.4) 0%, transparent 60%);
+    border-radius: 20px;
+    box-shadow:
+      0 4px 6px rgba(0,0,0,0.07),
+      0 10px 40px rgba(0,0,0,0.25),
+      0 30px 80px rgba(0,0,0,0.3),
+      inset 0 0 0 1px rgba(180,160,120,0.25);
+    border: 1px solid rgba(200,180,140,0.3);
+    position: relative;
+  }
+
+  /* Spiral rings on the left */
+  .notebook-rings {
+    position: absolute;
+    left: -18px;
+    top: 30px;
+    bottom: 30px;
+    width: 36px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-evenly;
+    align-items: center;
+    pointer-events: none;
+    z-index: 20;
+  }
+
+  .notebook-ring {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c8a96e 0%, #8a6d3b 40%, #c8a96e 60%, #6b5020 100%);
+    box-shadow:
+      inset 0 2px 4px rgba(255,255,255,0.3),
+      inset 0 -2px 4px rgba(0,0,0,0.4),
+      0 2px 6px rgba(0,0,0,0.5),
+      0 0 0 2px #7a5c2e;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .notebook-ring::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #0b2242 0%, #061426 100%);
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.8);
+  }
+
+  /* Red margin line on left */
+  .notebook-margin-line {
+    position: absolute;
+    left: 52px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: rgba(220, 80, 80, 0.25);
+    pointer-events: none;
+    z-index: 5;
+  }
+
+  /* --- DOTTED JOURNAL PLANNER AESTHETIC --- */
+  .planner-paper {
+    background-color: #f7f2e8;
+    background-image:
+      url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    border: 1px solid rgba(200,180,140,0.3);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    border-radius: 12px;
+  }
+
+  .dotted-journal {
+    background-image: radial-gradient(circle, rgba(150,130,100,0.35) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  .planner-border-bold {
+    border: 1px solid rgba(0, 0, 0, 0.08);
+  }
+
+  /* Header Pastel Highlights — warmer tones */
+  .header-sun { background-color: #fdf0ee; color: #8b3a3a; }
+  .header-mon { background-color: #eef4fb; color: #2c5f8a; }
+  .header-tue { background-color: #edf7f2; color: #2d6a4f; }
+  .header-wed { background-color: #fdf8e8; color: #7a5c0e; }
+  .header-thu { background-color: #f5f0fa; color: #5c3d8f; }
+  .header-fri { background-color: #fdf3e8; color: #8a4020; }
+  .header-sat { background-color: #fcf0f6; color: #8a2d62; }
+
+  /* Planner day cell hover */
+  .planner-day-cell {
+    transition: background-color 0.2s ease;
+  }
+  .planner-day-cell:hover {
+    background-color: rgba(180,150,100,0.06);
+  }
+
+  /* Clean Task Block */
+  .task-block {
+    @apply p-2 rounded-lg border border-black/[0.05] transition-all;
+    background-color: rgba(255, 255, 255, 0.5);
+  }
+  .task-block:hover {
+    background-color: rgba(255, 255, 255, 0.8);
+    border-color: rgba(0, 0, 0, 0.1);
+  }
+
+  /* Planner sidebar card */
+  .planner-sidebar {
+    background-color: #faf6ed;
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    border: 1px solid rgba(200,180,140,0.35);
+    border-radius: 16px;
+    box-shadow:
+      0 4px 20px rgba(0,0,0,0.15),
+      inset 0 0 0 1px rgba(255,255,255,0.5);
+  }
+
+  /* Sticky Note Popup */
+  .sticky-note {
+    background-color: #fff9e6;
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    box-shadow: 2px 8px 24px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08);
+    position: relative;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 12px;
+    border-top-left-radius: 2px;
+    border-top-right-radius: 2px;
+  }
+  
+  .sticky-note::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 6px;
+    background: transparent;
+    background-image: radial-gradient(circle at 4px 0, transparent 4px, #fff9e6 4px);
+    background-size: 8px 6px;
+    background-repeat: repeat-x;
+    transform: translateY(100%);
+  }
+
+  /* Handwriting-style textarea for journal */
+  .journal-textarea {
+    background: transparent;
+    border: none;
+    border-bottom: 1.5px dashed rgba(120,100,70,0.3);
+    border-radius: 0;
+    outline: none;
+    resize: none;
+    font-family: 'Caveat', cursive;
+    font-size: 1rem;
+    color: rgba(60,40,20,0.7);
+    line-height: 2;
+    padding: 4px 2px;
+    width: 100%;
+    transition: border-color 0.2s;
+  }
+  .journal-textarea:focus {
+    border-bottom-color: rgba(120,80,40,0.5);
+  }
+  .journal-textarea::placeholder {
+    color: rgba(120,100,70,0.4);
+    font-style: italic;
+  }
+
+  /* Warm planner scrollbar */
+  .planner-scrollbar::-webkit-scrollbar { width: 4px; }
+  .planner-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .planner-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(150,120,80,0.25);
+    border-radius: 10px;
+  }
+
+
+
+
+  .paper-crumpled {
+    position: relative;
+    box-shadow: 
+      inset 0 0 10px rgba(0,0,0,0.05),
+      5px 15px 30px rgba(0,0,0,0.4);
+    border-radius: 2px 4px 3px 12px;
+    overflow: hidden;
+    z-index: 10;
+  }
+
+  /* Texture Layer - Separated to avoid dulling colors */
+  .paper-crumpled::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: url("https://www.transparenttextures.com/patterns/natural-paper.png");
+    opacity: 0.15;
+    pointer-events: none;
+    z-index: 1;
+    mix-blend-mode: multiply;
+  }
+
+  .washi-tape {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%) rotate(-1.5deg);
+    width: 55px;
+    height: 22px;
+    backdrop-filter: blur(2px);
+    border: 1px solid rgba(255,255,255,0.2);
+    mask-image: linear-gradient(to right, transparent, black 15%, black 85%, transparent);
+    z-index: 50;
+    opacity: 0.9;
+  }
+
+  .washi-blue { background-color: #0ea5e9; }
+  .washi-pink { background-color: #ec4899; }
+  .washi-yellow { background-color: #eab308; }
+
+  .warm-glow-ambient {
+    background: radial-gradient(circle at 50% 50%, rgba(234, 179, 8, 0.08), transparent 80%);
+  }
+
+  @keyframes wobble {
+    0%, 100% { transform: rotate(-1.5deg); }
+    50% { transform: rotate(1.5deg); }
+  }
+  .hover-wobble:hover {
+    animation: wobble 0.6s ease-in-out infinite;
+  }
+
+  .peel-effect {
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .peel-effect:hover {
+    transform: translateY(-15px) scale(1.08) rotate(0deg) !important;
+    box-shadow: 0 40px 80px -15px rgba(0, 0, 0, 0.7);
+    z-index: 100;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 4px;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+  }
+}
