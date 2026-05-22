@@ -7,21 +7,28 @@ router.use(authenticateToken);
 
 // AI Engine
 router.post('/chat', aiController.chat);
+router.post('/validate-timeline', aiController.validateTimeline);
+router.post('/feasibility-check', aiController.feasibilityCheck);
 router.get('/today', aiController.getTodayTasks);
 
 // Goal Portfolio
 router.get('/goals', aiController.getAllGoals);
+router.get('/goals/trash', aiController.getTrashGoals);
 router.get('/goals/:id/history', aiController.getGoalHistory);
 router.get('/goals/:id', aiController.getGoalById);
+router.put('/goals/:id', aiController.updateGoalDates);
 router.put('/goals/:id/rename', aiController.renameGoal);
 router.put('/goals/:id/archive', aiController.archiveGoal);
 router.put('/goals/:id/primary', aiController.setPrimaryGoal);
 router.put('/goals/:id/status', aiController.updateGoalStatus);
 router.put('/goals/:id/progress', aiController.updateProgress);
+router.put('/goals/:id/favorite', aiController.toggleFavoriteGoal);
 router.post('/goals/bulk-delete', aiController.bulkDeleteGoals);
 router.post('/goals/bulk-archive', aiController.bulkArchiveGoals);
 router.post('/goals/:id/duplicate', aiController.duplicateGoal);
 router.post('/goals/:id/finish-setup', aiController.finishGoalSetup);
+router.post('/goals/:id/restore', aiController.restoreGoal);
+router.delete('/goals/:id/permanent', aiController.deleteGoalPermanently);
 router.delete('/goals/:id', aiController.deleteGoal);
 
 // Calendar & Bulk

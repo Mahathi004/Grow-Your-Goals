@@ -8,7 +8,7 @@ import api from '../api';
 import useOutsideClick from '../hooks/useOutsideClick';
 
 export default function GlobalHeader() {
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [goals, setGoals] = useState<any[]>([]);
   const [showGoalSelector, setShowGoalSelector] = useState(false);
@@ -50,8 +50,63 @@ export default function GlobalHeader() {
         {/* Streak Flame */}
         {isAuthenticated && (
           <div className="flex items-center gap-2 px-1 cursor-help group relative">
-            <Flame size={18} className={`${(user?.current_streak || 0) > 0 ? 'text-orange-500 fill-orange-500' : 'text-zinc-500'}`} />
-            <span className="text-orange-500 font-black text-[14px]">{user?.current_streak || 0}</span>
+            <motion.div
+              animate={(user?.current_streak || 0) > 0 ? {
+                filter: [
+                  "drop-shadow(0px 0px 4px rgba(249,115,22,0.5))",
+                  "drop-shadow(0px 0px 12px rgba(249,115,22,1))",
+                  "drop-shadow(0px 0px 4px rgba(249,115,22,0.5))"
+                ]
+              } : {}}
+              transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
+              className="flex items-center gap-1.5"
+            >
+              <div className="relative w-[18px] h-[18px] flex items-center justify-center">
+                {/* Base Fire (Red/Dark Orange) */}
+                <motion.div
+                  animate={(user?.current_streak || 0) > 0 ? {
+                    scale: [1, 1.1, 0.95, 1.05, 1],
+                    rotate: [0, -3, 3, -1, 0]
+                  } : {}}
+                  transition={{ duration: 0.8, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute origin-bottom"
+                >
+                  <Flame size={18} className={`${(user?.current_streak || 0) > 0 ? 'text-orange-600 fill-orange-600' : 'text-zinc-500'}`} />
+                </motion.div>
+                
+                {/* Mid Fire (Orange) */}
+                {(user?.current_streak || 0) > 0 && (
+                  <motion.div
+                    animate={{
+                      scale: [0.75, 0.9, 0.7, 0.85, 0.75],
+                      rotate: [0, 5, -5, 2, 0]
+                    }}
+                    transition={{ duration: 0.6, repeat: Infinity, ease: "easeInOut", delay: 0.1 }}
+                    className="absolute origin-bottom bottom-0"
+                  >
+                    <Flame size={18} className="text-orange-400 fill-orange-400" />
+                  </motion.div>
+                )}
+                
+                {/* Core Fire (Yellow) */}
+                {(user?.current_streak || 0) > 0 && (
+                  <motion.div
+                    animate={{
+                      scale: [0.45, 0.6, 0.4, 0.55, 0.45],
+                      y: [0, -1, 1, 0, 0]
+                    }}
+                    transition={{ duration: 0.4, repeat: Infinity, ease: "easeInOut", delay: 0.2 }}
+                    className="absolute origin-bottom bottom-0"
+                  >
+                    <Flame size={18} className="text-yellow-400 fill-yellow-400" />
+                  </motion.div>
+                )}
+              </div>
+
+              <span className={`${(user?.current_streak || 0) > 0 ? 'text-orange-500' : 'text-zinc-500'} font-black text-[14px]`}>
+                {user?.current_streak || 0}
+              </span>
+            </motion.div>
             
             {/* Streak Tooltip */}
             <div className="absolute top-full right-0 mt-4 w-56 bg-zinc-900 border border-white/10 p-4 rounded-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none shadow-2xl z-[200]">
@@ -161,12 +216,12 @@ export default function GlobalHeader() {
 
         <div className="w-[1px] h-4 bg-white/10" />
 
-        {/* Profile/Logout */}
+        {/* Profile/Settings */}
         <motion.button 
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
-          onClick={() => logout()}
-          title="Logout"
+          onClick={() => navigate('/settings')}
+          title="Settings"
           className="p-1.5 text-zinc-400 hover:text-white transition-colors bg-white/5 rounded-full"
         >
           <User size={18} />

@@ -21,7 +21,7 @@ import {
   Edit2
 } from 'lucide-react';
 import api from '../api';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import Toast from '../components/Toast';
 
@@ -54,17 +54,18 @@ export const RoadmapPage = () => {
   };
 
   const navigate = useNavigate();
-  const location = useLocation();
+  const { id: goalId } = useParams<{ id: string }>();
 
   const fetchPlan = async () => {
     try {
-      const params = new URLSearchParams(location.search);
-      const goalId = params.get('id');
-      const endpoint = goalId ? `/ai/goals/${goalId}` : '/ai/goals';
+      if (!goalId) {
+        setLoading(false);
+        return;
+      }
+      const endpoint = `/ai/goals/${goalId}`;
       const response = await api.get(endpoint);
       if (response.data.success) {
-        const data = goalId ? response.data.goal : response.data.goals?.[0];
-        setPlan(data);
+        setPlan(response.data.goal);
       }
     } catch (err) {
       // Silent catch or handle appropriately
@@ -73,7 +74,23 @@ export const RoadmapPage = () => {
     }
   };
 
-  useEffect(() => { fetchPlan(); }, [location.search]);
+  const handleUpdateGoalDates = async (newStart: string | null, newTarget: string | null) => {
+    try {
+      const payload: any = {};
+      if (newStart) payload.start_date = newStart;
+      if (newTarget) payload.target_date = newTarget;
+
+      const res = await api.put(`/ai/goals/${goalId}`, payload);
+      if (res.data) {
+        await fetchPlan();
+        addToast('success', 'Goal timeline updated successfully');
+      }
+    } catch (err) {
+      addToast('error', 'Failed to update goal dates');
+    }
+  };
+
+  useEffect(() => { fetchPlan(); }, [goalId]);
 
   if (loading) {
     return (
@@ -101,10 +118,17 @@ export const RoadmapPage = () => {
     const tasks = plan.tasks || [];
     const groupedMonths: any = {};
 
+    const getLocalDateStr = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+
     tasks.forEach((task: any) => {
       const date = new Date(task.task_date);
       const monthKey = `${date.getFullYear()}-${date.getMonth()}`;
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = getLocalDateStr(date);
       
       if (!groupedMonths[monthKey]) {
         groupedMonths[monthKey] = {
@@ -143,6 +167,7 @@ export const RoadmapPage = () => {
       ...m,
       weeks: Object.keys(m.weeks).sort().map(k => ({
         ...m.weeks[k],
+        weekNumber: parseInt(k) + 1,
         days: Object.values(m.weeks[k].days)
       }))
     }));
@@ -155,8 +180,8 @@ export const RoadmapPage = () => {
           <ShieldAlert size={40} className="text-zinc-600" />
         </div>
         <div className="text-center">
-          <h3 className="text-xl font-bold text-white mb-2">No Strategy Found</h3>
-          <p className="text-zinc-500">The roadmap is empty or corrupted.</p>
+          <h3 className="text-xl font-bold text-white mb-2">Strategy not found</h3>
+          <p className="text-zinc-500">We couldn't find a valid roadmap for this goal.</p>
         </div>
         <button onClick={() => navigate('/dashboard')} className="px-8 py-3 bg-zinc-900 border border-white/10 text-white rounded-2xl font-bold hover:bg-zinc-800 transition-all">
           Return to Dashboard
@@ -172,16 +197,18 @@ export const RoadmapPage = () => {
   const handleTaskStatusChange = async (taskId: string | undefined, newStatus: string) => {
     if (!taskId) return;
     try {
-      await api.put(`/ai/tasks/${taskId}/status`, { status: newStatus });
-      setPlan({
-        ...plan,
-        tasks: plan.tasks.map((t: any) => t.id === taskId ? { ...t, status: newStatus } : t)
-      });
+      const res = await api.put(`/ai/tasks/${taskId}/status`, { status: newStatus });
+      if (res.data.success) {
+        setPlan((prev: any) => ({
+          ...prev,
+          progress_percent: res.data.progress_percent !== undefined ? res.data.progress_percent : prev.progress_percent,
+          tasks: prev.tasks.map((t: any) => t.id === taskId ? { ...t, status: newStatus } : t)
+        }));
+      }
     } catch (err) { }
   };
 
-  const completedTasksCount = tasks.filter((t: any) => t.status === 'completed').length;
-  const completionPercent = tasks.length > 0 ? Math.round((completedTasksCount / tasks.length) * 100) : 0;
+  const completionPercent = plan.progress_percent !== undefined ? plan.progress_percent : 0;
 
   return (
     <div className="flex-1 min-h-screen bg-[#050505] text-zinc-400 relative overflow-hidden flex flex-col">
@@ -205,7 +232,17 @@ export const RoadmapPage = () => {
                     {roadmap.category || 'Strategy'}
                   </span>
                 </div>
-                <h1 className="text-xl font-bold text-white tracking-tight">{roadmap.title || plan.title}</h1>
+                <div className="flex items-center gap-3">
+                  <h1 className="text-xl font-bold text-white tracking-tight">{roadmap.title || plan.title}</h1>
+                  {plan.is_timeline_ai_generated && (
+                    <span 
+                      title="System-generated timeline based on estimated goal complexity."
+                      className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-extrabold tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-400 cursor-help"
+                    >
+                      <Sparkles size={8} /> AI
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex items-center gap-6">
@@ -272,25 +309,179 @@ export const RoadmapPage = () => {
             <AnimatePresence mode="wait">
               <motion.div key={activeTab} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }} className="w-full">
                 
-                {activeTab === 'summary' && (
-                  <div className="space-y-8">
-                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                      <div className="lg:col-span-2 bg-zinc-900/60 border border-white/5 p-8 rounded-[40px] relative overflow-hidden">
-                        <div className="relative z-10">
-                          <h2 className="text-2xl font-bold text-white mb-4">Blueprint Overview</h2>
-                          <div className="prose prose-invert max-w-none text-zinc-400">
-                             <ReactMarkdown>{roadmap.aiInsight || summary.strategy_overview || `Your mission is to achieve "${plan.title}" over ${summary.timeline || months.length + ' months'}.`}</ReactMarkdown>
+                {activeTab === 'summary' && (() => {
+                  const displayStartDate = plan.start_date 
+                    ? new Date(plan.start_date).toLocaleDateString(undefined, { dateStyle: 'medium' }) 
+                    : new Date(plan.created_at || Date.now()).toLocaleDateString(undefined, { dateStyle: 'medium' });
+
+                  const displayTargetDate = plan.target_date 
+                    ? new Date(plan.target_date).toLocaleDateString(undefined, { dateStyle: 'medium' }) 
+                    : (() => {
+                        const d = new Date(plan.start_date || plan.created_at || Date.now());
+                        d.setDate(d.getDate() + (plan.durationInDays || 30));
+                        return d.toLocaleDateString(undefined, { dateStyle: 'medium' });
+                      })();
+
+                  return (
+                    <div className="space-y-8">
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        <div className="lg:col-span-2 bg-zinc-900/60 border border-white/5 p-8 rounded-[40px] relative overflow-hidden">
+                          <div className="relative z-10">
+                            <div className="flex items-center gap-3 mb-4">
+                              <h2 className="text-2xl font-bold text-white">Blueprint Overview</h2>
+                              {plan.is_timeline_ai_generated && (
+                                <span 
+                                  title="System-generated timeline based on estimated goal complexity."
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-400 cursor-help shadow-[0_0_15px_rgba(139,92,246,0.15)] animate-pulse"
+                                >
+                                  <Sparkles size={10} />
+                                  AI-ESTIMATED
+                                </span>
+                              )}
+                            </div>
+                            <div className="prose prose-invert max-w-none text-zinc-400 mb-6">
+                               <ReactMarkdown>{roadmap.aiInsight || summary.strategy_overview || `Your mission is to achieve "${plan.title}" over ${summary.timeline || months.length + ' months'}.`}</ReactMarkdown>
+                            </div>
+
+                            {/* Rich structured summary fields */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6 pt-6 border-t border-white/5">
+                              {summary.goal && (
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Target Objective</span>
+                                  <span className="text-sm font-bold text-zinc-200">{summary.goal}</span>
+                                </div>
+                              )}
+                              {summary.timeline && (
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl relative">
+                                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Estimated Timeline</span>
+                                  <span className="text-sm font-bold text-zinc-200">{summary.timeline}</span>
+                                  {plan.is_timeline_ai_generated && (
+                                    <span 
+                                      title="System-generated timeline based on estimated goal complexity."
+                                      className="absolute top-4 right-4 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-extrabold tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-400 cursor-help"
+                                    >
+                                      <Sparkles size={8} /> AI
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              {summary.blocker && (
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Identified Blocker</span>
+                                  <span className="text-sm font-bold text-rose-400">{summary.blocker}</span>
+                                </div>
+                              )}
+                              {summary.daily_commitment && (
+                                <div className="p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                  <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-1">Commitment Level</span>
+                                  <span className="text-sm font-bold text-emerald-400">{summary.daily_commitment}</span>
+                                </div>
+                              )}
+                            </div>
+                            
+                            {summary.focus_areas && summary.focus_areas.length > 0 && (
+                              <div className="mt-4 p-4 bg-white/[0.02] border border-white/5 rounded-2xl">
+                                <span className="text-[10px] text-zinc-500 uppercase tracking-widest block mb-2">Key Strategic Focus Areas</span>
+                                <div className="flex flex-wrap gap-2">
+                                  {summary.focus_areas.map((area: string, index: number) => (
+                                    <span key={index} className="text-xs bg-blue-500/10 text-blue-400 border border-blue-500/20 px-3 py-1 rounded-xl font-bold">
+                                      {area}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         </div>
+                        <div className="space-y-4">
+                          <SummaryStat 
+                            icon={Clock} 
+                            label="Start Date" 
+                            value={displayStartDate} 
+                            color="blue" 
+                            isDate={true}
+                            rawValue={plan.start_date ? String(plan.start_date).slice(0, 10) : new Date(plan.created_at || Date.now()).toISOString().slice(0, 10)}
+                            onChange={(val: string) => handleUpdateGoalDates(val, null)}
+                          />
+                          <SummaryStat 
+                            icon={Calendar} 
+                            label="Target Date" 
+                            value={displayTargetDate} 
+                            color="blue" 
+                            isDate={true}
+                            rawValue={plan.target_date ? String(plan.target_date).slice(0, 10) : (() => {
+                               const d = new Date(plan.start_date || plan.created_at || Date.now());
+                               d.setDate(d.getDate() + (plan.durationInDays || 30));
+                               return d.toISOString().slice(0, 10);
+                             })()}
+                            onChange={(val: string) => handleUpdateGoalDates(null, val)}
+                            isAiGenerated={plan.is_timeline_ai_generated}
+                          />
+                          <SummaryStat 
+                            icon={Clock} 
+                            label="Duration" 
+                            value={`${plan.durationInDays || 30} Days`} 
+                            color="blue" 
+                            isAiGenerated={plan.is_timeline_ai_generated}
+                          />
+                          <SummaryStat icon={Flame} label="Effort" value={summary.daily_commitment || "Daily tasks"} color="orange" />
+                          <SummaryStat icon={ShieldAlert} label="Blocker" value={summary.blocker || "Knowledge"} color="rose" />
+                        </div>
                       </div>
-                      <div className="space-y-4">
-                        <SummaryStat icon={Clock} label="Timeline" value={summary.timeline || `${months.length} Months`} color="blue" />
-                        <SummaryStat icon={Flame} label="Effort" value={summary.daily_commitment || "Daily tasks"} color="orange" />
-                        <SummaryStat icon={ShieldAlert} label="Blocker" value={summary.blocker || "Knowledge"} color="rose" />
+
+                    {/* Milestones Track */}
+                    {plan.milestones && plan.milestones.length > 0 && (
+                      <div className="bg-zinc-900/40 border border-white/5 p-8 rounded-[40px] relative overflow-hidden">
+                        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+                          <Trophy className="text-yellow-500 animate-pulse" size={20} />
+                          Milestone Progression Checkpoints
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {plan.milestones.map((m: any, idx: number) => {
+                            const isCompleted = !!m.achieved_at;
+                            return (
+                              <div 
+                                key={m.id || idx} 
+                                className={`p-6 rounded-3xl border transition-all ${
+                                  isCompleted 
+                                    ? 'bg-emerald-500/5 border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.05)]' 
+                                    : 'bg-zinc-900/80 border-white/5'
+                                }`}
+                              >
+                                <div className="flex items-start justify-between mb-3">
+                                  <span className={`text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-lg ${
+                                    isCompleted 
+                                      ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' 
+                                      : 'bg-zinc-800 text-zinc-500 border border-white/5'
+                                  }`}>
+                                    Checkpoint {idx + 1}
+                                  </span>
+                                  {isCompleted ? (
+                                    <div className="w-6 h-6 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
+                                      <Check className="text-emerald-400" size={12} strokeWidth={3} />
+                                    </div>
+                                  ) : (
+                                    <div className="w-6 h-6 rounded-full bg-zinc-800 border border-white/5 flex items-center justify-center">
+                                      <Clock className="text-zinc-600" size={12} />
+                                    </div>
+                                  )}
+                                </div>
+                                <h4 className={`font-bold text-sm mb-1 ${isCompleted ? 'text-emerald-300' : 'text-white'}`}>{m.title}</h4>
+                                <p className="text-xs text-zinc-500 leading-relaxed mb-4">{m.description}</p>
+                                {m.achieved_at && (
+                                  <p className="text-[10px] text-emerald-500/80 font-medium">
+                                    Achieved: {new Date(m.achieved_at).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
+                    )}
                   </div>
-                )}
+                );
+              })()}
 
                 {activeTab === 'hierarchy' && (
                   <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-[calc(100vh-320px)]">
@@ -303,9 +494,9 @@ export const RoadmapPage = () => {
                           </button>
                            {expandedMonth === mIdx && (
                              <div ref={weekListRef} className="p-1 bg-black/20 overflow-y-auto max-h-60">
-                               {[0, 1, 2, 3].map((wIdx) => {
+                               {m.weeks.map((week: any, wIdx: number) => {
                                  const previousWeeksCount = mIdx * 4;
-                                 const displayWeekNum = previousWeeksCount + wIdx + 1;
+                                 const displayWeekNum = previousWeeksCount + week.weekNumber;
                                  
                                  const scrollToWeek = (num: number) => {
                                    setExpandedWeek(wIdx);
@@ -349,12 +540,9 @@ export const RoadmapPage = () => {
                             </div>
 
                             <div className="space-y-12 pl-4">
-                              {[0, 1, 2, 3].map((wIdx) => {
-                                const week = month.weeks?.[wIdx];
+                              {month.weeks.map((week: any, wIdx: number) => {
                                 const previousWeeksCount = mIdx * 4;
-                                const displayWeekNum = previousWeeksCount + wIdx + 1;
-
-                                // Always render 4 weeks per month to maintain structure and support navigation
+                                const displayWeekNum = previousWeeksCount + week.weekNumber;
 
                                 return (
                                   <div key={wIdx} id={`week-${displayWeekNum}`} className="space-y-6 scroll-mt-20">
@@ -362,11 +550,11 @@ export const RoadmapPage = () => {
                                       <span className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] bg-blue-500/10 px-2 py-0.5 rounded">
                                         Week {displayWeekNum}
                                       </span>
-                                      <span className="text-zinc-400 text-xs font-bold">{week?.weekGoal || 'Strategic Consolidation Phase'}</span>
+                                      <span className="text-zinc-400 text-xs font-bold">{week.weekGoal || 'Strategic Consolidation Phase'}</span>
                                     </div>
                                     
                                     <div className="space-y-6 pl-4 border-l border-white/5">
-                                      {week?.days?.length > 0 ? (
+                                      {week.days?.length > 0 ? (
                                         week.days.map((day: any, dIdx: number) => (
                                           <div key={dIdx} className="space-y-3">
                                             <h4 className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
@@ -374,16 +562,39 @@ export const RoadmapPage = () => {
                                             </h4>
                                             <div className="grid gap-3">
                                               {day.tasks?.map((taskObj: any, tIdx: number) => {
-                                                const dbTask = tasks.find((t: any) => t.task_name === taskObj.task && t.date === day.date);
+                                                const dbTask = tasks.find((t: any) => {
+                                                  const tDate = new Date(t.task_date);
+                                                  const tLocalDateStr = `${tDate.getFullYear()}-${String(tDate.getMonth() + 1).padStart(2, '0')}-${String(tDate.getDate()).padStart(2, '0')}`;
+                                                  return t.title === taskObj.task && tLocalDateStr === day.date;
+                                                });
                                                 const status = dbTask?.status || 'pending';
+                                                const isCompleted = status === 'completed';
+                                                const isOverdue = !isCompleted && new Date(day.date) < new Date(new Date().setHours(0, 0, 0, 0));
                                                 return (
-                                                  <div key={tIdx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:border-white/10 transition-colors group">
+                                                  <div key={tIdx} className={`flex items-center justify-between p-4 rounded-2xl border transition-colors group ${
+                                                    isCompleted 
+                                                      ? 'bg-emerald-500/5 border-emerald-500/10 hover:border-emerald-500/20' 
+                                                      : isOverdue 
+                                                        ? 'bg-red-500/5 border-red-500/10 hover:border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.02)]' 
+                                                        : 'bg-white/5 border-white/5 hover:border-white/10'
+                                                  }`}>
                                                     <div className="flex items-center gap-4">
                                                       <button onClick={() => handleTaskStatusChange(dbTask?.id, status === 'completed' ? 'pending' : 'completed')}>
-                                                        {status === 'completed' ? <CheckSquare size={18} className="text-emerald-500" /> : <Circle size={18} className="text-zinc-600" />}
+                                                        {isCompleted ? (
+                                                          <CheckSquare size={18} className="text-emerald-500" />
+                                                        ) : isOverdue ? (
+                                                          <XCircle size={18} className="text-red-500" />
+                                                        ) : (
+                                                          <Circle size={18} className="text-zinc-600 group-hover:text-zinc-400" />
+                                                        )}
                                                       </button>
                                                       <div>
-                                                        <p className={`text-sm font-bold ${status === 'completed' ? 'text-zinc-600 line-through' : 'text-zinc-200'}`}>{taskObj.task}</p>
+                                                        <div className="flex items-center gap-2">
+                                                          <p className={`text-sm font-bold ${isCompleted ? 'text-emerald-500/50 line-through font-normal' : isOverdue ? 'text-red-400 font-bold' : 'text-zinc-200'}`}>{taskObj.task}</p>
+                                                          {isOverdue && (
+                                                            <span className="text-[8px] font-black bg-red-500/10 border border-red-500/20 text-red-400 px-1.5 py-0.5 rounded uppercase tracking-wider">Overdue</span>
+                                                          )}
+                                                        </div>
                                                         <div className="flex items-center gap-2 mt-1">
                                                           <span className="text-[10px] text-zinc-500">{taskObj.duration}</span>
                                                           <span className="text-[10px] text-zinc-600">•</span>
@@ -607,18 +818,37 @@ function JourneyPathVisual({ nodes, tasks }: { nodes: any[], tasks: any[] }) {
   );
 }
 
-function SummaryStat({ icon: Icon, label, value, color }: any) {
+function SummaryStat({ icon: Icon, label, value, color, isDate, onChange, rawValue, isAiGenerated }: any) {
   const colors: any = {
     blue: 'text-blue-400 bg-blue-500/10',
     orange: 'text-orange-400 bg-orange-500/10',
     rose: 'text-rose-400 bg-rose-500/10',
   };
   return (
-    <div className="p-4 bg-zinc-900/40 border border-white/5 rounded-2xl flex items-center gap-4">
+    <div className="p-4 bg-zinc-900/40 border border-white/5 rounded-2xl flex items-center gap-4 group relative">
       <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${colors[color]}`}><Icon size={18} /></div>
-      <div>
-        <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{label}</p>
-        <p className="text-white font-bold text-sm">{value}</p>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{label}</p>
+          {isAiGenerated && (
+            <span 
+              title="System-generated timeline based on estimated goal complexity."
+              className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[8px] font-extrabold tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-400 cursor-help shadow-[0_0_10px_rgba(139,92,246,0.1)]"
+            >
+              <Sparkles size={8} /> AI
+            </span>
+          )}
+        </div>
+        {isDate && onChange ? (
+          <input 
+            type="date" 
+            value={rawValue || ''} 
+            onChange={(e) => onChange(e.target.value)}
+            className="bg-transparent text-white font-bold text-sm outline-none border-none p-0 cursor-pointer w-full focus:ring-0 [color-scheme:dark]"
+          />
+        ) : (
+          <p className="text-white font-bold text-sm">{value}</p>
+        )}
       </div>
     </div>
   );

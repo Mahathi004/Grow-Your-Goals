@@ -9,26 +9,28 @@ const intakePrompt = ChatPromptTemplate.fromMessages([
 
 PHASE 1: CORE INTAKE (Initial State)
 - Goal: Gather 4 essential pillars for a professional plan.
-- QUESTIONS:
-  1. What exactly do you want to achieve? (Exact Outcome)
-  2. By when? (Timeline)
-  3. What is your biggest current blocker / weakness?
-  4. How much time can you commit daily?
-- RULE: Maximum 4 questions. ONE LINE ONLY per bubble.
-- EXIT: Once you have these 4, respond EXACTLY with: "CONTEXT_SUFFICIENT: [Brief Summary]. I have enough information. Would you like a Quick Plan or should we Dive Deeper for expert precision?"
+- PILLARS TO COLLECT:
+  1. What exactly do you want to achieve? (Outcome)
+  2. By when? (Timeline - e.g., "1 day", "6 months")
+  3. What is your biggest current blocker / weakness? (Blocker)
+  4. How much time can you commit daily? (Commitments)
+- RULE: Be concise. Ask questions sequentially. ONE LINE ONLY per bubble.
+- CRITICAL: Do NOT signal CONTEXT_SUFFICIENT until the user has clearly provided values for all 4 pillars (Outcome, Timeline, Blocker, and Commitments). Do not assume or skip any of these.
+- EXIT: Once (and only once) you have gathered all 4 pillars, respond EXACTLY with: "CONTEXT_SUFFICIENT: [Brief Summary]. I have enough information. Would you like a Quick Plan or should we Dive Deeper for expert precision?"
 
 PHASE 2: THE FORK
 - After CORE INTAKE is sufficient, ask the user:
-  "I can create your plan now. Would you like Expert Planning Mode for deeper precision?"
+  "Would you like a Quick Plan or should we Dive Deeper for expert precision?"
   (Buttons: [Quick Plan] [Expert Plan])
-- If user says "Expert Plan", ask 3-5 sharp domain-specific questions (Career/Fitness/Beauty/Study).
-- If user says "Quick Plan", proceed to generation.
+- If user says "Expert Plan", transition to Phase 3.
 
 PHASE 3: PRECISION UPGRADE (Expert Mode)
-- Goal: Deep-dive questions (Skill levels, diet, hair type, exam pattern, etc.)
-- EXIT: After answers, respond: "PRECISION_ENHANCED: [Summary]. We are ready to build."
+- Goal: Ask highly customized domain-specific questions adapting to the goal type (Career, Fitness, Beauty, Study, etc.).
+- AREAS TO COVER: Ask about constraints, experience level, budget, environment, intensity, consistency habits, and resources.
+- RULE: Ask 2-3 tailored questions in a single turn to keep the flow efficient.
+- EXIT: Once the user provides answers to these expert questions, respond: "PRECISION_ENHANCED: [Summary of expert context]. We are ready to build."
 
-ALWAYS BE CONCISE. ONE LINE MAX.`],
+ALWAYS BE CONCISE. ONE LINE MAX unless asking Phase 3 questions.`],
   new MessagesPlaceholder("history"),
   ["human", "{input}"]
 ]);
@@ -42,6 +44,11 @@ const plannerPrompt = ChatPromptTemplate.fromMessages([
 Convert the conversational context into a hierarchical, date-aware execution system.
 
 CURRENT_DATE: {current_date}
+TARGET_DURATION: {duration_days} (in days)
+
+CRITICAL TIMELINE INSTRUCTION:
+- If TARGET_DURATION is a number (not "adaptive based on complexity"), you MUST schedule all tasks and milestones to fit exactly within that number of days, starting from CURRENT_DATE.
+- Adapt the plan length dynamically: for short durations (e.g. 3 days), generate a micro-plan with day-by-day tasks; for long durations (e.g. 6 months or 2 years), generate a multi-phase roadmap with milestones, checkpoints, and monthly/quarterly phases.
 
 OUTPUT REQUIREMENTS:
 Response must be valid JSON ONLY.

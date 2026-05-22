@@ -27,7 +27,7 @@ function AnimatedRoutes() {
         {/* All Sidebar Driven Pages */}
         <Route element={<DashboardLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/roadmap" element={<RoadmapPage />} />
+          <Route path="/roadmap/:id" element={<RoadmapPage />} />
           <Route path="/progress" element={<ProgressPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/calendar" element={<CalendarPage />} />

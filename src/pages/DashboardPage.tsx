@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Briefcase, Dumbbell, Sparkles, BookOpen, TrendingUp,
   Clock, Plus, Pin, Play, Archive, MoreVertical,
-  Target, CheckSquare, Trash2, Copy, Edit3, XCircle
+  Target, CheckSquare, Trash2, Copy, Edit3, XCircle, ChevronDown, Star
 } from 'lucide-react';
 import AIChat from '../components/AIChat';
 import api from '../api';
@@ -34,6 +34,8 @@ export default function DashboardPage() {
   const [chatTrigger, setChatTrigger] = useState<string | null>(null);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [showAllActiveGoals, setShowAllActiveGoals] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -75,6 +77,24 @@ export default function DashboardPage() {
     else if (isAuthenticated) fetchGoals();
   }, [isAuthenticated, authLoading]);
 
+  useEffect(() => {
+    const handleSidebarSearch = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setSearchQuery(customEvent.detail || '');
+    };
+    window.addEventListener('sidebarSearch', handleSidebarSearch);
+
+    const handleGoalsUpdated = () => {
+      fetchGoals();
+    };
+    window.addEventListener('goalsUpdated', handleGoalsUpdated);
+
+    return () => {
+      window.removeEventListener('sidebarSearch', handleSidebarSearch);
+      window.removeEventListener('goalsUpdated', handleGoalsUpdated);
+    };
+  }, []);
+
   const fetchGoals = async () => {
     try {
       const res = await api.get('/ai/goals');
@@ -94,13 +114,14 @@ export default function DashboardPage() {
       else if (action === 'rename') res = await api.put(`/ai/goals/${id}/rename`, { title: value });
       else if (action === 'delete') res = await api.delete(`/ai/goals/${id}`);
       else if (action === 'duplicate') res = await api.post(`/ai/goals/${id}/duplicate`);
+      else if (action === 'favorite') res = await api.put(`/ai/goals/${id}/favorite`);
       
       if (res?.data?.success || action === 'delete') {
-        addToast('success', `Goal ${action === 'delete' ? 'deleted' : action === 'duplicate' ? 'duplicated' : 'updated'} successfully`);
+        addToast('success', `Goal ${action === 'delete' ? 'deleted' : action === 'duplicate' ? 'duplicated' : action === 'favorite' ? 'favorite status updated' : 'updated'} successfully`);
         fetchGoals();
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err: any) {
-      // Error handled by toast
       addToast('error', err.response?.data?.message || `Failed to ${action} goal`);
     }
   };
@@ -156,12 +177,15 @@ export default function DashboardPage() {
 
   if (authLoading) return null;
 
-  const pinnedGoal = goals.find((g: any) => g.is_primary && g.goal_setup_finished);
-  const activeGoals = goals.filter((g: any) => g.goal_setup_finished && !g.is_primary && !g.is_archived);
-  const draftGoals = goals.filter((g: any) => !g.goal_setup_finished);
-  const archivedGoals = goals.filter((g: any) => g.is_archived && g.goal_setup_finished);
+  const displayedGoals = goals.filter((g: any) => 
+    g.goal_setup_finished && g.title?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const pinnedGoal = displayedGoals.find((g: any) => g.is_primary);
+  const activeGoals = displayedGoals.filter((g: any) => !g.is_primary && !g.is_archived);
+  const archivedGoals = displayedGoals.filter((g: any) => g.is_archived);
   
-  const hasGoals = !loadingGoals && goals.length > 0;
+  const hasGoals = !loadingGoals && goals.filter((g: any) => g.goal_setup_finished).length > 0;
 
   /*
    * SINGLE RETURN — AIChat is mounted exactly once, always at the
@@ -240,7 +264,17 @@ export default function DashboardPage() {
                 <span className="text-[#9aa3b2] mr-2 text-sm opacity-70">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
                 </span>
-                <input type="text" placeholder="Search goals..." className="bg-transparent border-none outline-none text-sm text-white placeholder-[#9aa3b2] w-full" />
+                <input 
+                  type="text" 
+                  placeholder="Search goals..." 
+                  value={searchQuery}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setSearchQuery(val);
+                    window.dispatchEvent(new CustomEvent('sidebarSearch', { detail: val }));
+                  }}
+                  className="bg-transparent border-none outline-none text-sm text-white placeholder-[#9aa3b2] w-full" 
+                />
               </div>
 
               <div className="flex items-center gap-3">
@@ -297,7 +331,7 @@ export default function DashboardPage() {
                       isPinned
                       onAction={handleGoalAction}
                       onDelete={() => confirmDelete(pinnedGoal)}
-                      onView={() => navigate(`/roadmap?id=${pinnedGoal.id}`)}
+                      onView={() => navigate(`/roadmap/${pinnedGoal.id}`)}
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedIds.includes(pinnedGoal.id)}
                       onSelect={() => toggleSelection(pinnedGoal.id)}
@@ -306,29 +340,7 @@ export default function DashboardPage() {
                 </section>
               )}
 
-              {/* Draft Journeys */}
-              {draftGoals.length > 0 && (
-                <section className="overflow-visible">
-                  <div className="flex items-center gap-2 mb-6 text-purple-400 opacity-60">
-                    <Sparkles size={16} />
-                    <h3 className="text-xs font-black uppercase tracking-[0.3em]">Draft Journeys (Setup Mode)</h3>
-                  </div>
-                  <div className="space-y-4 overflow-visible">
-                    {draftGoals.map((goal: any) => (
-                      <GoalRow
-                        key={goal.id}
-                        goal={goal}
-                        onAction={handleGoalAction}
-                        onDelete={() => confirmDelete(goal)}
-                        onView={() => navigate(`/roadmap?id=${goal.id}`)}
-                        isSelectionMode={isSelectionMode}
-                        isSelected={selectedIds.includes(goal.id)}
-                        onSelect={() => toggleSelection(goal.id)}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
+
 
               {/* Active Portfolio */}
               <section className="overflow-visible">
@@ -337,19 +349,30 @@ export default function DashboardPage() {
                   <h3 className="text-xs font-black uppercase tracking-[0.3em]">Active Portfolio</h3>
                 </div>
                 <div className="space-y-4 overflow-visible">
-                  {activeGoals.map((goal: any) => (
+                  {activeGoals.slice(0, showAllActiveGoals ? activeGoals.length : 2).map((goal: any) => (
                     <GoalRow
                       key={goal.id}
                       goal={goal}
                       onAction={handleGoalAction}
                       onDelete={() => confirmDelete(goal)}
-                      onView={() => navigate(`/roadmap?id=${goal.id}`)}
+                      onView={() => navigate(`/roadmap/${goal.id}`)}
                       isSelectionMode={isSelectionMode}
                       isSelected={selectedIds.includes(goal.id)}
                       onSelect={() => toggleSelection(goal.id)}
                     />
                   ))}
                 </div>
+                {activeGoals.length > 2 && (
+                  <div className="flex justify-center mt-6">
+                    <button
+                      onClick={() => setShowAllActiveGoals(!showAllActiveGoals)}
+                      className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[#9aa3b2] hover:text-white bg-white/[0.02] hover:bg-white/[0.05] border border-white/[0.05] hover:border-white/10 px-5 py-2.5 rounded-full transition-all duration-300 backdrop-blur-md"
+                    >
+                      <span>{showAllActiveGoals ? 'Show Less' : `Show More (${activeGoals.length - 2} more)`}</span>
+                      <ChevronDown size={14} className={`transition-transform duration-300 ${showAllActiveGoals ? 'rotate-180' : ''}`} />
+                    </button>
+                  </div>
+                )}
               </section>
 
               {/* Archived Collection */}
@@ -368,7 +391,7 @@ export default function DashboardPage() {
                         goal={goal}
                         onAction={handleGoalAction}
                         onDelete={() => confirmDelete(goal)}
-                        onView={() => navigate(`/roadmap?id=${goal.id}`)}
+                        onView={() => navigate(`/roadmap/${goal.id}`)}
                         isSelectionMode={isSelectionMode}
                         isSelected={selectedIds.includes(goal.id)}
                         onSelect={() => toggleSelection(goal.id)}
@@ -545,9 +568,18 @@ function GoalRow({ goal, isPinned = false, onAction, onDelete, onView, isSelecti
             <h4 className="text-[17px] font-semibold text-white/90 truncate transition-colors cursor-pointer" onClick={onView}>
               {goal.title}
             </h4>
+            {goal.is_favorite && <Star size={13} className="text-amber-400 fill-amber-400 flex-shrink-0" />}
             <span className={`px-2 py-0.5 rounded-[5px] text-[10px] font-bold uppercase tracking-widest opacity-90 ${statusColors[status.toLowerCase()] || statusColors.active}`}>
               {status}
             </span>
+            {goal.is_timeline_ai_generated && (
+              <span 
+                title="System-generated timeline based on estimated goal complexity."
+                className="flex items-center gap-0.5 px-2 py-0.5 rounded-[5px] text-[10px] font-bold uppercase tracking-wider bg-violet-500/10 border border-violet-500/20 text-violet-400 cursor-help"
+              >
+                AI
+              </span>
+            )}
             {isPinned && <Pin size={12} className="text-[#7c3aed]/60" fill="currentColor" />}
           </div>
           <p className="text-[#9aa3b2]/72 text-[14px] font-normal line-clamp-1 mb-2.5">{goal.description || 'No description provided.'}</p>
@@ -601,6 +633,7 @@ function GoalRow({ goal, isPinned = false, onAction, onDelete, onView, isSelecti
                 <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Goal Actions</p>
               </div>
               <MenuButton icon={Play} label="Open Strategy" onClick={() => { setShowActions(false); onView(); }} />
+              <MenuButton icon={Star} iconClassName={goal.is_favorite ? 'text-amber-400 fill-amber-400' : ''} label={goal.is_favorite ? 'Unstar Goal' : 'Star Goal'} onClick={() => { setShowActions(false); onAction(goal.id, 'favorite'); }} />
               <MenuButton icon={Edit3} label="Edit Goal" onClick={() => {
                 setShowActions(false);
                 const newTitle = window.prompt('Rename goal:', goal.title);

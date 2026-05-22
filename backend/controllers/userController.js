@@ -36,31 +36,38 @@ exports.updateCheckin = async (req, res) => {
       [userId, today]
     );
 
-    if (checkinRes.rows.length > 0) {
-      // Already checked in today
-      return res.json({ success: true, message: 'Already checked in today.' });
-    }
-
-    // Get user's last login/streak info
+    // Get user's streak info
     const userRes = await db.query(
-      'SELECT current_streak, longest_streak, last_login_at FROM users WHERE id = $1',
+      'SELECT current_streak, longest_streak FROM users WHERE id = $1',
       [userId]
     );
-    const user = userRes.rows[0];
+    const user = userRes.rows[0] || { current_streak: 0, longest_streak: 0 };
 
-    let newStreak = 1;
-    const lastLogin = user.last_login_at ? new Date(user.last_login_at).toISOString().split('T')[0] : null;
-    
+    if (checkinRes.rows.length > 0) {
+      // Already checked in today, return current streak safely
+      return res.json({ 
+        success: true, 
+        message: 'Already checked in today.', 
+        currentStreak: user.current_streak,
+        longestStreak: user.longest_streak
+      });
+    }
+
     // Calculate yesterday relative to "today"
     const todayDate = new Date(today);
     const yesterday = new Date(todayDate);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
 
-    if (lastLogin === yesterdayStr) {
+    // Check if they checked in yesterday
+    const yesterdayCheckinRes = await db.query(
+      'SELECT * FROM user_checkins WHERE user_id = $1 AND date = $2',
+      [userId, yesterdayStr]
+    );
+
+    let newStreak = 1;
+    if (yesterdayCheckinRes.rows.length > 0) {
       newStreak = user.current_streak + 1;
-    } else if (lastLogin === today) {
-      newStreak = user.current_streak;
     }
 
     const newLongestStreak = Math.max(newStreak, user.longest_streak);

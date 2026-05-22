@@ -106,7 +106,7 @@ export default function CalendarModal({ isOpen, onClose, primaryGoal }: Calendar
             <button 
               onClick={() => {
                 onClose();
-                navigate(`/roadmap?id=${primaryGoal?.id}`);
+                navigate(`/roadmap/${primaryGoal?.id}`);
               }}
               className="text-blue-400 hover:text-blue-300 text-sm font-bold flex items-center gap-2 transition-colors"
             >

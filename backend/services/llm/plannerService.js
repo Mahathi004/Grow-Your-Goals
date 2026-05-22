@@ -8,7 +8,7 @@ const { parseRoadmapJSON } = require("./outputParser");
  * Generates the final structured execution roadmap.
  */
 
-const generateRoadmap = async (chatHistoryJson) => {
+const generateRoadmap = async (chatHistoryJson, durationDays) => {
   // Use a slightly lower temperature for planning for consistency
   const model = getModel(0.3); 
   const history = getHistoryFromDB(chatHistoryJson);
@@ -17,7 +17,8 @@ const generateRoadmap = async (chatHistoryJson) => {
   
   const response = await chain.invoke({
     history: history,
-    current_date: new Date().toISOString().split('T')[0] // Use YYYY-MM-DD for LLM clarity
+    current_date: new Date().toISOString().split('T')[0], // Use YYYY-MM-DD for LLM clarity
+    duration_days: durationDays || "adaptive based on complexity"
   });
 
   const roadmapJson = parseRoadmapJSON(response.content);
