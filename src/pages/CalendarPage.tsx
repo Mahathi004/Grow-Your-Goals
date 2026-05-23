@@ -112,6 +112,7 @@ export const CalendarPage = () => {
         if (newStatus === 'completed') {
           triggerConfetti();
         }
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err) {
       console.error('Error updating task status:', err);

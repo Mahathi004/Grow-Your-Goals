@@ -134,6 +134,7 @@ export default function DashboardPage() {
         setSelectedIds([]);
         setIsSelectionMode(false);
         fetchGoals();
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err: any) {
       // Error handled by toast
@@ -149,6 +150,7 @@ export default function DashboardPage() {
         setSelectedIds([]);
         setIsSelectionMode(false);
         fetchGoals();
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err: any) {
       // Error handled by toast

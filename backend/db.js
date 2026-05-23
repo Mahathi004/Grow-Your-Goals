@@ -32,6 +32,12 @@ pool.connect((err, client, release) => {
       ALTER TABLE goals ADD COLUMN IF NOT EXISTS active_context JSONB DEFAULT '{}'::jsonb;
       ALTER TABLE goals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
       ALTER TABLE goal_sessions ADD COLUMN IF NOT EXISTS current_phase VARCHAR(50) DEFAULT 'Phase 1';
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS goal_id UUID REFERENCES goals(id) ON DELETE CASCADE;
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium';
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'info';
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action_link VARCHAR(255);
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
     `, (err, res) => {
       release();
       if (err) {

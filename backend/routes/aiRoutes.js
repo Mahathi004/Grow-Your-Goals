@@ -1,9 +1,17 @@
 const express = require('express');
 const router = express.Router();
 const aiController = require('../controllers/aiController');
+const notificationController = require('../controllers/notificationController');
 const { authenticateToken } = require('./authRoutes');
 
 router.use(authenticateToken);
+
+// Notifications System
+router.get('/notifications', notificationController.getNotifications);
+router.put('/notifications/read-all', notificationController.markAllRead);
+router.put('/notifications/:id/read', notificationController.markRead);
+router.delete('/notifications/:id', notificationController.deleteNotification);
+router.post('/notifications/evaluate', notificationController.evaluateNotifications);
 
 // AI Engine
 router.post('/chat', aiController.chat);

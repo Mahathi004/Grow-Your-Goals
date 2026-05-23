@@ -84,6 +84,7 @@ export const RoadmapPage = () => {
       if (res.data) {
         await fetchPlan();
         addToast('success', 'Goal timeline updated successfully');
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err) {
       addToast('error', 'Failed to update goal dates');
@@ -204,6 +205,7 @@ export const RoadmapPage = () => {
           progress_percent: res.data.progress_percent !== undefined ? res.data.progress_percent : prev.progress_percent,
           tasks: prev.tasks.map((t: any) => t.id === taskId ? { ...t, status: newStatus } : t)
         }));
+        window.dispatchEvent(new Event('goalsUpdated'));
       }
     } catch (err) { }
   };
@@ -264,8 +266,10 @@ export const RoadmapPage = () => {
                     onClick={async () => {
                       try {
                         await api.post(`/ai/goals/${plan.id}/finish-setup`);
+                        window.dispatchEvent(new Event('goalsUpdated'));
                         setShowSuccessOverlay(true);
                         addToast('success', 'Goal Formed Successfully!');
+
                         setTimeout(() => {
                           setShowSuccessOverlay(false);
                           navigate('/dashboard');
