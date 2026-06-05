@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   LayoutDashboard, 
-  BarChart3, 
   Settings,
   LogOut,
   Search,
@@ -156,7 +155,6 @@ const DashboardSidebar: React.FC = () => {
     { icon: <LayoutDashboard size={20} />, label: "Dashboard", path: "/dashboard" },
     { icon: <Sparkles size={20} className="text-purple-400" />, label: "Drafts", path: "#drafts", isDrafts: true },
     { icon: <Trash2 size={20} className="text-rose-400" />, label: "Dustbin", path: "#trash", isTrash: true },
-    { icon: <BarChart3 size={20} />, label: "Progress", path: "/progress" },
     { icon: <Settings size={20} />, label: "Settings", path: "/settings" },
   ];
 

@@ -7,7 +7,6 @@ import {
   Clock, 
   Map as MapIcon, 
   Layout, 
-  Zap,
   ShieldAlert,
   Calendar,
   CheckSquare,
@@ -24,6 +23,7 @@ import api from '../api';
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import Toast from '../components/Toast';
+import { WindingRoadMap } from '../components/WindingRoadMap';
 
 export const RoadmapPage = () => {
   const [plan, setPlan] = useState<any>(null);
@@ -601,7 +601,7 @@ export const RoadmapPage = () => {
                                                         </div>
                                                         <div className="flex items-center gap-2 mt-1">
                                                           <span className="text-[10px] text-zinc-500">{taskObj.duration}</span>
-                                                          <span className="text-[10px] text-zinc-600">•</span>
+                                                          <span className="text-[10px] text-zinc-600">â€¢</span>
                                                           <span className={`text-[10px] font-bold ${taskObj.priority === 'High' ? 'text-rose-400' : 'text-zinc-600'}`}>{taskObj.priority}</span>
                                                         </div>
                                                       </div>
@@ -636,7 +636,12 @@ export const RoadmapPage = () => {
                 )}
 
                 {activeTab === 'journey' && (
-                  <JourneyPathVisual nodes={journeyPath} tasks={tasks} />
+                  <WindingRoadMap
+                    nodes={journeyPath}
+                    tasks={tasks}
+                    handleTaskStatusChange={handleTaskStatusChange}
+                    addToast={addToast}
+                  />
                 )}
 
               </motion.div>
@@ -744,83 +749,10 @@ export const RoadmapPage = () => {
   );
 };
 
-function JourneyPathVisual({ nodes, tasks }: { nodes: any[], tasks: any[] }) {
-  if (!nodes || nodes.length === 0) return <div className="text-center text-zinc-500 p-20 bg-zinc-900/20 rounded-[48px] border border-white/5 font-medium">Expert analysis required to generate Journey Path.</div>;
-  
-  const pathWidth = 600;
-  const nodeSpacing = 160;
-  const height = (nodes.length + 2) * nodeSpacing;
-  
-  // Calculate completed status (mock logic: if first few tasks are done, node is done)
-  // Real logic would check actual task completion per phase
-  const completedCount = tasks.filter(t => t.status === 'completed').length;
-  const totalTasks = tasks.length || 1;
-  const progressPercent = completedCount / totalTasks;
-  const completedNodeIndex = Math.floor(progressPercent * nodes.length) - 1;
+// JourneyPathVisual removed â€” replaced by WindingRoadMap component
 
-  let pathD = `M ${pathWidth / 2} ${nodeSpacing / 2}`;
-  nodes.forEach((_, i) => {
-    const y = (i + 1) * nodeSpacing + (nodeSpacing / 2);
-    const prevY = i * nodeSpacing + (nodeSpacing / 2);
-    const midY = (prevY + y) / 2;
-    const curveOffset = i % 2 === 0 ? 150 : -150;
-    pathD += ` C ${pathWidth / 2 + curveOffset} ${midY} ${pathWidth / 2 + curveOffset} ${midY} ${pathWidth / 2} ${y}`;
-  });
-  
-  const goalY = (nodes.length + 1) * nodeSpacing + (nodeSpacing / 2);
-  const finalMidY = ((nodes.length) * nodeSpacing + (nodeSpacing / 2) + goalY) / 2;
-  const finalCurveOffset = nodes.length % 2 === 0 ? 150 : -150;
-  pathD += ` C ${pathWidth / 2 + finalCurveOffset} ${finalMidY} ${pathWidth / 2 + finalCurveOffset} ${finalMidY} ${pathWidth / 2} ${goalY}`;
 
-  return (
-    <div className="relative p-12 bg-zinc-900/10 border border-white/5 rounded-[48px] overflow-hidden flex flex-col items-center">
-      <div className="absolute inset-0 opacity-[0.02]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
-      <div className="relative" style={{ width: pathWidth, height }}>
-        <svg width={pathWidth} height={height} className="absolute inset-0 pointer-events-none overflow-visible">
-          <defs>
-            <linearGradient id="roadmapGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor="#3b82f6" />
-              <stop offset="100%" stopColor="#8b5cf6" />
-            </linearGradient>
-          </defs>
-          <path d={pathD} fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="8" strokeLinecap="round" />
-          <motion.path d={pathD} fill="none" stroke="url(#roadmapGradient)" strokeWidth="4" strokeLinecap="round" initial={{ pathLength: 0 }} animate={{ pathLength: 1 }} transition={{ duration: 2 }} />
-        </svg>
 
-        <div className="absolute inset-0 flex flex-col items-center pointer-events-none">
-          <div className="absolute flex flex-col items-center" style={{ top: nodeSpacing/2, transform: 'translateY(-50%)' }}>
-            <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center border-2 border-white/20 shadow-lg shadow-blue-500/20"><Zap size={18} className="text-white" /></div>
-          </div>
-
-          {nodes.map((node, i) => {
-            const y = (i + 1) * nodeSpacing + (nodeSpacing / 2);
-            const isCompleted = i <= completedNodeIndex;
-            const isCurrent = i === completedNodeIndex + 1;
-            const isLocked = i > completedNodeIndex + 1;
-
-            return (
-              <div key={i} className="absolute flex items-center gap-6 pointer-events-auto group" style={{ top: y, transform: 'translateY(-50%)', left: i % 2 === 0 ? '50%' : 'auto', right: i % 2 === 0 ? 'auto' : '50%', flexDirection: i % 2 === 0 ? 'row' : 'row-reverse', width: '300px', marginLeft: i % 2 === 0 ? '-20px' : '0', marginRight: i % 2 === 0 ? '0' : '-20px' }}>
-                <div className={`w-10 h-10 rounded-2xl border-2 flex items-center justify-center transition-all ${isCompleted ? 'bg-blue-600 border-blue-400' : isCurrent ? 'bg-zinc-900 border-blue-500 animate-pulse' : 'bg-zinc-900 border-white/5 opacity-40'}`}>
-                   <Activity size={18} className={isCompleted ? 'text-white' : isCurrent ? 'text-blue-500' : 'text-zinc-600'} />
-                </div>
-                <div className={`flex-1 p-4 bg-zinc-900/80 backdrop-blur-md border border-white/5 rounded-2xl ${isLocked ? 'opacity-40' : 'hover:border-white/20 transition-colors'}`}>
-                  <h4 className="text-white font-bold text-sm truncate mb-1">{node.title || node.node}</h4>
-                  <p className="text-zinc-500 text-[10px] leading-relaxed line-clamp-2">{node.description || node.details}</p>
-                </div>
-              </div>
-            );
-          })}
-
-          <div className="absolute flex flex-col items-center" style={{ top: goalY, transform: 'translateY(-50%)' }}>
-            <motion.div animate={{ y: [0, -5, 0] }} transition={{ duration: 3, repeat: Infinity }} className="w-16 h-16 rounded-[28px] bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20 border-2 border-white/20">
-              <Trophy className="text-white w-8 h-8" />
-            </motion.div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function SummaryStat({ icon: Icon, label, value, color, isDate, onChange, rawValue, isAiGenerated }: any) {
   const colors: any = {

@@ -4,8 +4,12 @@ import { AuthProvider } from './context/AuthContext';
 import { GoalProvider } from './context/GoalContext';
 import HomePage from './pages/HomePage';
 import AuthPage from './pages/AuthPage';
+import OnboardingPage from './pages/OnboardingPage';
 import DashboardPage from './pages/DashboardPage';
 import DashboardLayout from './components/DashboardLayout';
+import ProtectedRoute from './components/ProtectedRoute';
+import PublicRoute from './components/PublicRoute';
+import OnboardingRoute from './components/OnboardingRoute';
 import './index.css';
 
 import { 
@@ -21,16 +25,38 @@ function AnimatedRoutes() {
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
+        {/* Public landing — always accessible */}
         <Route path="/" element={<HomePage />} />
-        <Route path="/auth" element={<AuthPage />} />
-        
-        {/* All Sidebar Driven Pages */}
-        <Route element={<DashboardLayout />}>
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/roadmap/:id" element={<RoadmapPage />} />
-          <Route path="/progress" element={<ProgressPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/calendar" element={<CalendarPage />} />
+
+        {/* Auth — redirects to /dashboard if already logged in and onboarded */}
+        <Route
+          path="/auth"
+          element={
+            <PublicRoute>
+              <AuthPage />
+            </PublicRoute>
+          }
+        />
+
+        {/* Onboarding — only for authenticated users who haven't completed setup */}
+        <Route
+          path="/onboarding"
+          element={
+            <OnboardingRoute>
+              <OnboardingPage />
+            </OnboardingRoute>
+          }
+        />
+
+        {/* Protected app pages — requires auth + completed onboarding */}
+        <Route element={<ProtectedRoute />}>
+          <Route element={<DashboardLayout />}>
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/roadmap/:id" element={<RoadmapPage />} />
+            <Route path="/progress" element={<ProgressPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/calendar" element={<CalendarPage />} />
+          </Route>
         </Route>
       </Routes>
     </AnimatePresence>
@@ -43,13 +69,9 @@ function AppContent() {
 
   return (
     <main className="relative min-h-screen w-full overflow-hidden bg-background text-foreground font-body flex flex-col">
-      {/* Background Video - Only for Home and Auth */}
       {isVideoBgPage && (
         <video
-          autoPlay
-          loop
-          muted
-          playsInline
+          autoPlay loop muted playsInline
           className="fixed inset-0 w-full h-full object-cover z-0 opacity-80 pointer-events-none"
         >
           <source
@@ -58,7 +80,6 @@ function AppContent() {
           />
         </video>
       )}
-
       <AnimatedRoutes />
     </main>
   );
@@ -77,4 +98,3 @@ function App() {
 }
 
 export default App;
-

@@ -8,6 +8,7 @@ import {
   Target, CheckSquare, Trash2, Copy, Edit3, XCircle, ChevronDown, Star
 } from 'lucide-react';
 import AIChat from '../components/AIChat';
+import FirstTimeSetupModal from '../components/FirstTimeSetupModal';
 import api from '../api';
 import useOutsideClick from '../hooks/useOutsideClick';
 import ConfirmModal from '../components/ConfirmModal';
@@ -480,6 +481,9 @@ export default function DashboardPage() {
       </AnimatePresence>
 
       <Toast toasts={toasts} removeToast={removeToast} />
+
+      {/* First-time profile setup — shows once, never again */}
+      <FirstTimeSetupModal />
     </div>
   );
 }

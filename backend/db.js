@@ -38,6 +38,26 @@ pool.connect((err, client, release) => {
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action_link VARCHAR(255);
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(100);
       ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+
+      -- Google OAuth Migration
+      ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50);
+
+      UPDATE users SET auth_provider = 'local' WHERE auth_provider IS NULL AND password_hash IS NOT NULL;
+      UPDATE users SET auth_provider = 'google' WHERE auth_provider IS NULL AND google_id IS NOT NULL;
+
+      CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+      -- Hybrid Auth Migration
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50);
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
+
+      -- Mark existing fully-set-up users as onboarding complete
+      UPDATE users SET onboarding_completed = true WHERE password_hash IS NOT NULL AND onboarding_completed = false;
     `, (err, res) => {
       release();
       if (err) {
