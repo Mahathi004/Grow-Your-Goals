@@ -1,4 +1,6 @@
 const { Pool } = require('pg');
+const fs = require('fs');
+const path = require('path');
 require('dotenv').config();
 
 // Supports both DATABASE_URL (Neon/cloud) and individual vars (local dev)
@@ -24,59 +26,92 @@ pool.connect((err, client, release) => {
   } else {
     console.log('✅ DB connected successfully to:', pool.options.database);
     
-    // Add columns if they do not exist
-    client.query(`
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT CURRENT_DATE;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_timeline_ai_generated BOOLEAN DEFAULT TRUE;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS timeline_validity VARCHAR(20) DEFAULT 'VALID';
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_aggressive_timeline BOOLEAN DEFAULT FALSE;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS confidence_score INTEGER DEFAULT 75;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS minimum_required_days INTEGER;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS complexity_score INTEGER;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS override_validation BOOLEAN DEFAULT FALSE;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT FALSE;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS active_context JSONB DEFAULT '{}'::jsonb;
-      ALTER TABLE goals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
-      ALTER TABLE goal_sessions ADD COLUMN IF NOT EXISTS current_phase VARCHAR(50) DEFAULT 'Phase 1';
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS goal_id UUID REFERENCES goals(id) ON DELETE CASCADE;
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium';
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'info';
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action_link VARCHAR(255);
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(100);
-      ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
-
-      -- Google OAuth Migration
-      ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50);
-
-      UPDATE users SET auth_provider = 'local' WHERE auth_provider IS NULL AND password_hash IS NOT NULL;
-      UPDATE users SET auth_provider = 'google' WHERE auth_provider IS NULL AND google_id IS NOT NULL;
-
-      CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
-      CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
-      -- Hybrid Auth Migration
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50);
-      ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
-
-      -- Mark existing fully-set-up users as onboarding complete
-      UPDATE users SET onboarding_completed = true WHERE password_hash IS NOT NULL AND onboarding_completed = false;
-    `, (err, res) => {
-      release();
+    // Check if the 'goals' table exists. If not, auto-initialize the database schema.
+    client.query(`SELECT EXISTS (SELECT FROM pg_tables WHERE schemaname = 'public' AND tablename = 'goals')`, (err, res) => {
       if (err) {
-        console.error('❌ DB migration query failed:', err.message);
+        release();
+        console.error('❌ Failed to check for goals table:', err.message);
+        return;
+      }
+      
+      const goalsExists = res.rows[0].exists;
+      if (!goalsExists) {
+        console.log('🔄 "goals" table not found. Initializing database schema from production_schema.sql...');
+        try {
+          const schemaSql = fs.readFileSync(path.join(__dirname, 'production_schema.sql'), 'utf8');
+          client.query(schemaSql, (err, res) => {
+            if (err) {
+              release();
+              console.error('❌ Failed to initialize database schema:', err.message);
+              return;
+            }
+            console.log('✅ Database schema initialized successfully from production_schema.sql.');
+            runMigrations(client, release);
+          });
+        } catch (readErr) {
+          release();
+          console.error('❌ Failed to read production_schema.sql file:', readErr.message);
+        }
       } else {
-        console.log('✅ Database migration check passed: all validation columns verified.');
-        // Run cleanup on startup and set interval
-        purgeOldDeletedGoals();
-        setInterval(purgeOldDeletedGoals, 6 * 60 * 60 * 1000);
+        runMigrations(client, release);
       }
     });
   }
 });
+
+function runMigrations(client, release) {
+  // Add columns if they do not exist
+  client.query(`
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS start_date DATE DEFAULT CURRENT_DATE;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_timeline_ai_generated BOOLEAN DEFAULT TRUE;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS timeline_validity VARCHAR(20) DEFAULT 'VALID';
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_aggressive_timeline BOOLEAN DEFAULT FALSE;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS confidence_score INTEGER DEFAULT 75;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS minimum_required_days INTEGER;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS complexity_score INTEGER;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS override_validation BOOLEAN DEFAULT FALSE;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS is_favorite BOOLEAN DEFAULT FALSE;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS active_context JSONB DEFAULT '{}'::jsonb;
+    ALTER TABLE goals ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP WITH TIME ZONE DEFAULT NULL;
+    ALTER TABLE goal_sessions ADD COLUMN IF NOT EXISTS current_phase VARCHAR(50) DEFAULT 'Phase 1';
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS goal_id UUID REFERENCES goals(id) ON DELETE CASCADE;
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority VARCHAR(50) DEFAULT 'medium';
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS severity VARCHAR(50) DEFAULT 'info';
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action_link VARCHAR(255);
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS category VARCHAR(100);
+    ALTER TABLE notifications ADD COLUMN IF NOT EXISTS expires_at TIMESTAMP WITH TIME ZONE;
+
+    -- Google OAuth Migration
+    ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id VARCHAR(255) UNIQUE;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS auth_provider VARCHAR(50);
+
+    UPDATE users SET auth_provider = 'local' WHERE auth_provider IS NULL AND password_hash IS NOT NULL;
+    UPDATE users SET auth_provider = 'google' WHERE auth_provider IS NULL AND google_id IS NOT NULL;
+
+    CREATE INDEX IF NOT EXISTS idx_users_google_id ON users(google_id);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+    -- Hybrid Auth Migration
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(50);
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS onboarding_completed BOOLEAN DEFAULT FALSE;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_users_username ON users(username) WHERE username IS NOT NULL;
+
+    -- Mark existing fully-set-up users as onboarding complete
+    UPDATE users SET onboarding_completed = true WHERE password_hash IS NOT NULL AND onboarding_completed = false;
+  `, (err, res) => {
+    release();
+    if (err) {
+      console.error('❌ DB migration query failed:', err.message);
+    } else {
+      console.log('✅ Database migration check passed: all validation columns verified.');
+      // Run cleanup on startup and set interval
+      purgeOldDeletedGoals();
+      setInterval(purgeOldDeletedGoals, 6 * 60 * 60 * 1000);
+    }
+  });
+}
 
 const purgeOldDeletedGoals = () => {
   pool.query(`DELETE FROM goals WHERE deleted_at < NOW() - INTERVAL '7 days'`, (err, res) => {
